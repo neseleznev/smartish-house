@@ -91,7 +91,7 @@ class AceStreamEngine(object):
         try:
             self.acestream = psutil.Popen(self.engine_args, stdout=PIPE)
             self.notify('running')
-            time.sleep(5)
+            time.sleep(1)
         except FileNotFoundError:
             self.notify('noengine')
             self.close_player(1)
@@ -169,7 +169,6 @@ class AceStreamEngine(object):
 
         url = None
 
-        # time.sleep(10)
         lines = []
         for line in self.acestream.stdout:
             print(line.decode('utf-8'))
