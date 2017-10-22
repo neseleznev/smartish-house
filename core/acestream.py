@@ -18,6 +18,7 @@ from threading import Thread
 import psutil
 import pexpect
 import notify2
+from dbus.exceptions import DBusException
 
 VLC_SERVER_PORT = 8081
 
@@ -56,8 +57,12 @@ class AceStreamEngine(object):
         self.appname = 'Acestream Launcher'
         # self.args = parser.parse_args()
 
-        notify2.init(self.appname)
-        self.notifier = notify2.Notification(self.appname)
+        try:
+            notify2.init(self.appname)
+            self.notifier = notify2.Notification(self.appname)
+            self.is_notify_available = True
+        except DBusException:
+            self.is_notify_available = False
 
         self.start_acestream()
         self.start_session()
@@ -78,8 +83,9 @@ class AceStreamEngine(object):
         }
 
         print(messages[message])
-        self.notifier.update(self.appname, messages[message], icon)
-        self.notifier.show()
+        if self.is_notify_available:
+            self.notifier.update(self.appname, messages[message], icon)
+            self.notifier.show()
 
     def start_acestream(self):
         """Start acestream engine"""

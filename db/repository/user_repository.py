@@ -1,6 +1,6 @@
 from core.common import Singleton
 from db.database import Database
-from model.user import User
+from db.model.user import User
 
 INIT_SCRIPT = [
     'DROP TABLE users',
