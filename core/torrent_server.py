@@ -6,6 +6,7 @@ from http.server import HTTPServer as BaseHTTPServer, SimpleHTTPRequestHandler
 import os
 from threading import Thread
 
+from constants import TORRENT_SERVER_PORT
 from core.common import Singleton
 
 
@@ -27,7 +28,7 @@ class HTTPServer(BaseHTTPServer):
 
 class TorrentServer(metaclass=Singleton):
 
-    def __init__(self, directory, port=8080):
+    def __init__(self, directory, port=TORRENT_SERVER_PORT):
         self.directory = directory
         self.port = port
         self.httpd = HTTPServer(directory, ("", port))

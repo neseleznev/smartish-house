@@ -138,20 +138,32 @@ class Kodi(metaclass=Singleton):
     # interval description http://kodi.wiki/view/JSON-RPC_API/v8#Player.Seek
     def seek(self, interval: str):
         player_id = self.get_player_id()
+        if not player_id:
+            print('Nothing is playing!')
+            return
         self.open(self.api_method('Player.Seek', '{"playerid":' + player_id + ',"value":"' + interval + '"}'))
 
     def pause(self):
         player_id = self.get_player_id()
+        if not player_id:
+            print('Nothing is playing!')
+            return
         self.open(self.api_method('Player.PlayPause', '{"playerid":' + player_id + '}'))
 
     # FIXME not working
     def next_audio_source(self):
         player_id = self.get_player_id()
+        if not player_id:
+            print('Nothing is playing!')
+            return
         self.open(self.api_method('Player.SetAudioStream', '{"playerid":' + player_id + ',"stream":"next"}'))
 
     # FIXME not working
     def next_subtitle(self):
         player_id = self.get_player_id()
+        if not player_id:
+            print('Nothing is playing!')
+            return
         self.open(self.api_method('Player.SetSubtitle', '{"playerid":' + player_id + ',"subtitle":"next"}'))
 
     # # interval could be "increment", "decrement", and number

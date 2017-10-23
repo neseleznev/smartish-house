@@ -5,20 +5,17 @@ import datetime
 import telebot
 from telebot import types
 
+from constants import VLC_PORT, KODI_PORT, TORRENT_SERVER_PORT
 from core.acestream import AceStreamEngine
 from core.common import Platform
 from core.remote_control import VLC, Kodi
 from core.torrent_server import TorrentServer
-from utils import get_token, get_torrent_directory, get_platform
+from config import Config
 
-CONFIG_FILE = 'config.ini'
-TORRENT_SERVER_PORT = 8880
-KODI_PORT = 8080
-VLC_PORT = 8881
-
-TOKEN = get_token(CONFIG_FILE)
-TORRENT_DIR = get_torrent_directory(CONFIG_FILE)
-PLATFORM = get_platform(CONFIG_FILE)
+config = Config('config.ini')
+TOKEN = config.get_token()
+TORRENT_DIR = config.get_torrent_directory()
+PLATFORM = config.get_platform()
 
 if PLATFORM == Platform.LINUX_X86:
     options = {'vlc_port': VLC_PORT}

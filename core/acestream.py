@@ -8,6 +8,7 @@ Inspired by https://github.com/jonian/acestream-launcher/blob/master/acestream_l
 """
 
 import json
+import os
 import re
 import sys
 import time
@@ -20,6 +21,7 @@ from urllib.error import URLError
 import psutil
 import pexpect
 
+from constants import VLC_PORT, TORRENT_SERVER_PORT, KODI_PORT
 from core.common import Platform
 
 
@@ -29,22 +31,29 @@ class AceStreamEngine(object):
     def __init__(self, platform, options):
         self.platform = platform
 
-        """Launch Ace Stream Engine"""
-        if platform == Platform.LINUX_X86:
-            self.engine_args = ['acestreamengine', '--client-console']
-        elif platform == Platform.ARM_V7:
+        """Set up engine params"""
+        if self.platform == Platform.LINUX_X86:
+            self.engine_log = os.path.join(
+                os.path.dirname(os.path.realpath(sys.argv[0])),
+                'log',
+                'acestream.log')
+            self.engine_args = ['acestreamengine', '--client-console', '--log-file', self.engine_log]
+        elif self.platform == Platform.ARM_V7:
+            self.engine_log = '/opt/acestream/acestream.log'
             self.engine_args = ['/opt/acestream/start_acestream.sh']
+        else:
+            raise NotImplementedError(self.platform + ' is not currently supported')
 
         """Set up players"""
         if platform == Platform.LINUX_X86:  # or platform == Platform.WINDOWS:
             self.player_args = ['vlc', '--extraintf', 'http',
                                 '--http-host=127.0.0.1',
-                                '--http-port='+str(options.get('vlc_port', 8881)),
+                                '--http-port='+str(options.get('vlc_port', VLC_PORT)),
                                 '--http-password=pass']
         elif platform == Platform.ARM_V7:
-            if not AceStreamEngine._is_process_running('/usr/bin/', 'kodi'):
+            if not AceStreamEngine._is_process_running('kodi', '/usr/bin/'):
                 psutil.Popen('kodi')
-            self.kodi_port = str(options.get('kodi_port', 8080))
+            self.kodi_port = str(options.get('kodi_port', KODI_PORT))
             print('Started Kodi. JSON-RPC API on port', self.kodi_port)
         # elif platform == ugly ARM_V7:
         #     self.player_args = ['omxplayer', '-p', '-o', 'local', '--win', "'0 0 1280 800'"]
@@ -66,17 +75,6 @@ class AceStreamEngine(object):
 
         self.kill_running_engine()
         self.start_acestream()
-
-    @staticmethod
-    def _is_process_running(process_path, process_name):
-        ps = psutil.Popen("ps -eaf | grep " + process_name, shell=True, stdout=PIPE)
-        output = ps.stdout.read()
-        ps.stdout.close()
-        ps.wait()
-        output = output.decode('utf-8')
-        if re.search(process_path + process_name, output) is None:
-            return False
-        return True
 
     @staticmethod
     def _get_port():
@@ -120,27 +118,70 @@ class AceStreamEngine(object):
                 psutil.Popen('/opt/acestream/stop_acestream.sh', stdout=PIPE)
             except FileNotFoundError:
                 pass
-        print('Killed all running AceStream Engine instances')
+        time.sleep(10)
+        self.notify('Killed all running AceStream Engine instances (+10 seconds)')
 
     def start_acestream(self):
-        """Start acestream engine"""
+        """Starts detached acestream process with logs redirected"""
 
-        if self.platform in [Platform.LINUX_X86, Platform.ARM_V7]:
-            try:
-                self.acestream = psutil.Popen(self.engine_args, stdout=PIPE)
-                self.notify('running')
-                time.sleep(10)
-            except FileNotFoundError:
-                self.notify('noengine')
+        try:
+            psutil.Popen(self.engine_args)
+        except FileNotFoundError:
+            self.notify('noengine')
+            self.destroy(1)
+
+        # Read redirected output
+        self.acestream = psutil.Popen('sudo su -', shell=True, stdin=PIPE, stdout=PIPE, stderr=PIPE)
+        self.acestream.stdin.write(('tail -n 0 -f ' + self.engine_log + '\n').encode('utf-8'))
+        self.acestream.stdin.flush()
+
+        lines = []
+        for line in self.acestream.stdout:
+            line = line.decode('utf-8')
+            lines.append(line)
+            if 'KILL' in line:
+                self.notify(''.join(lines[-5:]))
                 self.destroy(1)
+            if 'ready to receive remote commands' in line:
+                self.notify('running')
+                break
 
-        # Hack with redirected output from Android
-        if self.platform == Platform.ARM_V7:
-            self.acestream = psutil.Popen('sudo su -', shell=True, stdin=PIPE, stdout=PIPE, stderr=PIPE)
-            log_file = '/opt/acestream/acestream.log'
-            self.acestream.stdin.write(('tail -n 0 -f ' + log_file + '\n').encode('utf-8'))
-            self.acestream.stdin.flush()
+    @staticmethod
+    def _is_process_running(process_name, process_path='/'):
+        ps = psutil.Popen("ps -eaf | grep " + process_name, shell=True, stdout=PIPE)
+        output = ps.stdout.read()
+        ps.stdout.close()
+        ps.wait()
+        output = output.decode('utf-8')
+        if re.search(process_path + process_name, output) is None:
+            return False
+        return True
 
+    # noinspection PyMethodParameters
+    def acestream_running(func):
+        """
+        Ensures that AceStream Engine is running and starts it if needed,
+        accordingly to a self.platform"""
+
+        def wrapper(*args):
+            self = args[0]
+
+            if self.platform == Platform.LINUX_X86:
+                is_running = AceStreamEngine._is_process_running('acestreamengine')
+            elif self.platform == Platform.ARM_V7:
+                is_running = AceStreamEngine._is_process_running('start_acestream.sh', '/opt/acestream/')
+            else:
+                raise NotImplementedError(self.platform + ' is not currently supported')
+
+            if not is_running:
+                self.start_acestream()
+
+            # noinspection PyCallingNonCallable
+            return func(*args)
+        return wrapper
+
+    # noinspection PyArgumentList
+    @acestream_running
     def play_torrent(self, torrent):
         errors = []
         for _ in range(3):
@@ -149,8 +190,8 @@ class AceStreamEngine(object):
             except ValueError as e:
                 errors.append(e)
                 if len(errors) == 3:
-                    self.notify('noauth')
-                    self.destroy(1)
+                    self.notify('Three errors in a row ' + '\n'.join(errors))
+                    # self.destroy(1)
             else:
                 break
 
@@ -210,7 +251,8 @@ class AceStreamEngine(object):
             self.notify('started')
         except (pexpect.TIMEOUT, pexpect.EOF):
             self.notify('unavailable')
-            self.destroy(1)
+            # self.destroy(1)
+            self.kill_running_engine()
         except KeyError:
             raise ValueError('unavailable')
 
@@ -222,7 +264,8 @@ class AceStreamEngine(object):
             print(line.decode('utf-8'))
             lines.append(line.decode('utf-8'))
             if 'STOP' in line.decode('utf-8'):
-                raise BaseException(''.join(lines[-5:]))
+                self.notify(''.join(lines[-5:]))
+                self.kill_running_engine()
             if 'START http://127.' in line.decode('utf-8'):
                 return line.decode('utf-8').split('START ')[1].rstrip()
 
@@ -252,7 +295,7 @@ class AceStreamEngine(object):
             except URLError as ex:
                 print(ex)
                 self.notify('kodi')
-                self.destroy(1)
+                self.kill_running_engine()
 
     def destroy(self, code=0):
         """Close acestream and media player"""
@@ -276,12 +319,8 @@ class AceStreamEngine(object):
         try:
             self.play_torrent(torrent_url)
         except (KeyboardInterrupt, EOFError):
-            print('Acestream Launcher exiting...')
-
-            for process in psutil.process_iter():
-                if 'acestreamengine' in process.name():
-                    process.kill()
-
+            self.notify('Acestream Launcher exiting...')
+            self.kill_running_engine()
             sys.exit(0)
 
     def start_playback(self, torrent_url):
@@ -290,7 +329,6 @@ class AceStreamEngine(object):
             name='AceStream Engine and VLC Player'
         ).start()
 
-
 if __name__ == '__main__':
-    engine = AceStreamEngine(Platform.LINUX_X86, {'vlc_port': 8081})
-    engine.play_torrent('http://127.0.0.1:8080/07-28-06_The_Fountain__.torrent')
+    engine = AceStreamEngine(Platform.LINUX_X86, {'vlc_port': VLC_PORT})
+    engine.play_torrent('http://127.0.0.1:' + TORRENT_SERVER_PORT + '/07-28-06_The_Fountain__.torrent')
