@@ -211,6 +211,8 @@ class AceStreamEngine(object):
         except (pexpect.TIMEOUT, pexpect.EOF):
             self.notify('unavailable')
             self.destroy(1)
+        except KeyError:
+            raise ValueError('unavailable')
 
     def _get_playback_url(self):
         """Start the media player"""

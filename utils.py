@@ -1,6 +1,7 @@
 #!/usr/bin/env python3
 # -*- coding: utf-8 -*-
 import configparser
+import sys
 
 from core.common import Platform
 
@@ -28,6 +29,7 @@ def get_property(config_filename, property):
         return config['DEFAULT'][property]
     except KeyError:
         warn_missing_config(config_filename)
+        sys.exit(1)
 
 
 def warn_missing_config(config_filename):
