@@ -8,122 +8,161 @@ Inspired by https://github.com/jonian/acestream-launcher/blob/master/acestream_l
 """
 
 import json
+import re
 import sys
 import time
 import hashlib
-# import argparse
+import urllib.request
 from subprocess import PIPE
 from threading import Thread
+from urllib.error import URLError
 
 import psutil
 import pexpect
-import notify2
-from dbus.exceptions import DBusException
 
-VLC_SERVER_PORT = 8081
+from core.common import Platform
 
 
 class AceStreamEngine(object):
     """Acestream Launcher"""
 
-    def __init__(self, torrent_url):
-        self.torrent = torrent_url
-        self.engine_args = ['acestreamengine', '--client-console']
-        self.player_args = ['vlc', '--extraintf', 'http',
-                            '--http-host=127.0.0.1',
-                            '--http-port='+str(VLC_SERVER_PORT),
-                            '--http-password=pass']
-        # For Windows
-        # self.player_args = ['vlc', '--extraintf http', '--http-host=127.0.0.1', '--http-port=8081', '--http-password=pass']
-    #     parser = argparse.ArgumentParser(
-    #         prog='acestream-launcher',
-    #         description='Open acestream links with any media player'
-    #     )
-    #     parser.add_argument(
-    #         'url',
-    #         metavar='URL',
-    #         help='the acestream url to play'
-    #     )
-    #     parser.add_argument(
-    #         '-e', '--engine',
-    #         help='the engine command to use (default: acestreamengine --client-console)',
-    #         default='acestreamengine --client-console'
-    #     )
-    #     parser.add_argument(
-    #         '-p', '--player',
-    #         help='the media player command to use (default: vlc)',
-    #         default='vlc'
-    #     )
-        self.appname = 'Acestream Launcher'
-        # self.args = parser.parse_args()
+    def __init__(self, platform, options):
+        self.platform = platform
 
-        try:
-            notify2.init(self.appname)
-            self.notifier = notify2.Notification(self.appname)
-            self.is_notify_available = True
-        except DBusException:
+        """Launch Ace Stream Engine"""
+        if platform == Platform.LINUX_X86:
+            self.engine_args = ['acestreamengine', '--client-console']
+        elif platform == Platform.ARM_V7:
+            self.engine_args = ['/opt/acestream/start_acestream.sh']
+
+        """Set up players"""
+        if platform == Platform.LINUX_X86:  # or platform == Platform.WINDOWS:
+            self.player_args = ['vlc', '--extraintf', 'http',
+                                '--http-host=127.0.0.1',
+                                '--http-port='+str(options.get('vlc_port', 8881)),
+                                '--http-password=pass']
+        elif platform == Platform.ARM_V7:
+            if not AceStreamEngine._is_process_running('/usr/bin/', 'kodi'):
+                psutil.Popen('kodi')
+            self.kodi_port = str(options.get('kodi_port', 8080))
+            print('Started Kodi. JSON-RPC API on port', self.kodi_port)
+        # elif platform == ugly ARM_V7:
+        #     self.player_args = ['omxplayer', '-p', '-o', 'local', '--win', "'0 0 1280 800'"]
+
+        """Set up notifications"""
+        if platform == Platform.LINUX_X86:
+            import notify2
+            from dbus.exceptions import DBusException
+
+            self.app_name = 'AceStream Launcher'
+            try:
+                notify2.init(self.app_name)
+                self.notifier = notify2.Notification(self.app_name)
+                self.is_notify_available = True
+            except DBusException:
+                self.is_notify_available = False
+        else:
             self.is_notify_available = False
 
+        self.kill_running_engine()
         self.start_acestream()
-        self.start_session()
-        self.start_player()
-        self.close_player()
-
-    def notify(self, message):
-        """Show player status notifications"""
-
-        icon = self.player_args[0]
-        messages = {
-            'running': 'Acestream engine running.',
-            'waiting': 'Waiting for channel response...',
-            'started': 'Streaming started. Launching player.',
-            'noauth': 'Error authenticating to Acestream!',
-            'noengine': 'Acstream engine not found in provided path!',
-            'unavailable': 'Acestream channel unavailable!'
-        }
-
-        print(messages[message])
-        if self.is_notify_available:
-            self.notifier.update(self.appname, messages[message], icon)
-            self.notifier.show()
-
-    def start_acestream(self):
-        """Start acestream engine"""
-
-        for process in psutil.process_iter():
-            if 'acestreamengine' in process.name():
-                process.kill()
-
-        try:
-            self.acestream = psutil.Popen(self.engine_args, stdout=PIPE)
-            self.notify('running')
-            time.sleep(1)
-        except FileNotFoundError:
-            self.notify('noengine')
-            self.close_player(1)
 
     @staticmethod
-    def get_port():
-        import os
-        # Linux
-        if os.name == 'posix':
-            return 62062
+    def _is_process_running(process_path, process_name):
+        ps = psutil.Popen("ps -eaf | grep " + process_name, shell=True, stdout=PIPE)
+        output = ps.stdout.read()
+        ps.stdout.close()
+        ps.wait()
+        output = output.decode('utf-8')
+        if re.search(process_path + process_name, output) is None:
+            return False
+        return True
 
+    @staticmethod
+    def _get_port():
+        import os
         # Windows
         if os.name == 'nt':
             port_file = os.path.join(os.getenv('APPDATA'), r'ACEStream\engine', 'acestream.port')
             if not os.path.isfile(port_file):
                 raise FileNotFoundError('Unable to get AceStream port number from file ' + port_file)
-
             with open(port_file) as f:
-                return int(f.readline())
+                return f.readline()
+        else:
+             return '62062'
 
-    def start_session(self):
+    def notify(self, message):
+        """Show player status notifications"""
+
+        messages = {
+            'running': 'Started AceStream Engine on port ' + self._get_port(),
+            'waiting': 'Waiting for channel response...',
+            'started': 'Streaming started. Launching player.',
+            'noauth': 'Error authenticating to Acestream!',
+            'noengine': 'Acstream engine not found in provided path!',
+            'unavailable': 'Acestream channel unavailable!',
+            'kodi': 'Kodi is not responding'
+        }
+        print(messages.get(message, message))
+
+        if self.is_notify_available:
+            icon = self.player_args[0]
+            self.notifier.update(self.app_name, messages.get(message, message), icon)
+            self.notifier.show()
+
+    def kill_running_engine(self):
+        if self.platform == Platform.LINUX_X86:
+            for process in psutil.process_iter():
+                if 'acestreamengine' in process.name():
+                    process.kill()
+        elif self.platform == Platform.ARM_V7:
+            try:
+                psutil.Popen('/opt/acestream/stop_acestream.sh', stdout=PIPE)
+            except FileNotFoundError:
+                pass
+        print('Killed all running AceStream Engine instances')
+
+    def start_acestream(self):
+        """Start acestream engine"""
+
+        if self.platform in [Platform.LINUX_X86, Platform.ARM_V7]:
+            try:
+                self.acestream = psutil.Popen(self.engine_args, stdout=PIPE)
+                self.notify('running')
+                time.sleep(10)
+            except FileNotFoundError:
+                self.notify('noengine')
+                self.destroy(1)
+
+        # Hack with redirected output from Android
+        if self.platform == Platform.ARM_V7:
+            self.acestream = psutil.Popen('sudo su -', shell=True, stdin=PIPE, stdout=PIPE, stderr=PIPE)
+            log_file = '/opt/acestream/acestream.log'
+            self.acestream.stdin.write(('tail -n 0 -f ' + log_file + '\n').encode('utf-8'))
+            self.acestream.stdin.flush()
+
+    def play_torrent(self, torrent):
+        errors = []
+        for _ in range(3):
+            try:
+                self._start_session(torrent)
+            except ValueError as e:
+                errors.append(e)
+                if len(errors) == 3:
+                    self.notify('noauth')
+                    self.destroy(1)
+            else:
+                break
+
+        url = self._get_playback_url()
+        self._open_stream_url(url)
+
+    def _start_session(self, torrent):
         """Start acestream telnet session"""
 
         product_key = 'n51LvQoTlJzNGaFxseRK-uvnvX-sD4Vm5Axwmc4UcoD-jruxmKsuJaH0eVgE'
 
-        session = pexpect.spawn('telnet localhost '+str(self.get_port()))
+        session = pexpect.spawn('telnet 127.0.0.1 ' + self._get_port())
 
         try:
             session.timeout = 1000
@@ -143,15 +182,18 @@ class AceStreamEngine(object):
             self.notify('waiting')
         except (pexpect.TIMEOUT, pexpect.EOF):
             self.notify('noauth')
-            self.close_player(1)
+            raise ValueError('noauth')
 
         try:
             session.timeout = 30
 
-            session.sendline('LOADASYNC 467763 TORRENT '+self.torrent+' 0 0 0')
+            torrent = torrent.replace('localhost', '127.0.0.1', 1)
+            print(torrent)
+            session.sendline('LOADASYNC 467763 TORRENT '+torrent+' 0 0 0')
             session.expect('LOADRESP 467763 {.*}')
             json_response = '{' + session.after.decode('utf-8').split('{')[1]
             response = json.loads(json_response)
+            print(response)
             infohash = response['infohash']
             checksum = response['checksum']
 
@@ -159,7 +201,7 @@ class AceStreamEngine(object):
             session.expect('##.*')
             self.cid = session.after.decode('utf-8').split('##')[1].rstrip()
 
-            session.sendline('START TORRENT '+self.torrent+' 0 0 0 0')
+            session.sendline('START TORRENT '+torrent+' 0 0 0 0')
             session.expect('http://.*')
 
             self.session = session
@@ -168,12 +210,10 @@ class AceStreamEngine(object):
             self.notify('started')
         except (pexpect.TIMEOUT, pexpect.EOF):
             self.notify('unavailable')
-            self.close_player(1)
+            self.destroy(1)
 
-    def start_player(self):
+    def _get_playback_url(self):
         """Start the media player"""
-
-        url = None
 
         lines = []
         for line in self.acestream.stdout:
@@ -182,53 +222,73 @@ class AceStreamEngine(object):
             if 'STOP' in line.decode('utf-8'):
                 raise BaseException(''.join(lines[-5:]))
             if 'START http://127.' in line.decode('utf-8'):
-                url = line.decode('utf-8').split('START ')[1].rstrip()
-                break
+                return line.decode('utf-8').split('START ')[1].rstrip()
 
-        self.player_args.append(url)
+    def _open_stream_url(self, url):
+        if self.platform == Platform.LINUX_X86:
+            self.player_args.append(url)
+            self.player = psutil.Popen(self.player_args)
+            self.player.wait()
+            self.session.sendline('STOP')
+            self.session.sendline('SHUTDOWN')
 
-        self.player = psutil.Popen(self.player_args)
-        self.player.wait()
-        self.session.sendline('STOP')
-        self.session.sendline('SHUTDOWN')
+        elif self.platform == Platform.ARM_V7:
+            api_root = 'http://127.0.0.1:' + self.kodi_port + '/jsonrpc'
+            password_mgr = urllib.request.HTTPPasswordMgrWithDefaultRealm()
+            password_mgr.add_password(None, api_root, 'kodi', 'kodi')
+            handler = urllib.request.HTTPBasicAuthHandler(password_mgr)
+            opener = urllib.request.build_opener(handler)
+            try:
+                request_url = (api_root +
+                               '?request={%22jsonrpc%22:%222.0%22,'
+                               '%22id%22:1,'
+                               '%22method%22:%22Player.Open%22,'
+                               '%22params%22:{%22item%22:{%22file%22:%22' + url + '%22}}}')
+                print('Sending GET ' + request_url)
+                response = opener.open(request_url)
+                print(response.read().decode('utf-8'))
+            except URLError as ex:
+                print(ex)
+                self.notify('kodi')
+                self.destroy(1)
 
-    def close_player(self, code=0):
+    def destroy(self, code=0):
         """Close acestream and media player"""
 
-        try:
-            self.player.kill()
-        except (AttributeError, psutil.NoSuchProcess):
-            print('Media Player not running...')
+        if self.platform == Platform.LINUX_X86:
+            try:
+                self.player.kill()
+            except (AttributeError, psutil.NoSuchProcess):
+                print('Media Player not running...')
 
-        try:
-            self.acestream.kill()
-        except (AttributeError, psutil.NoSuchProcess):
-            print('Acestream not running...')
+            try:
+                self.acestream.kill()
+            except (AttributeError, psutil.NoSuchProcess):
+                print('Acestream not running...')
 
         sys.exit(code)
 
+    def _run_playback(self, torrent_url):
+        """Start Acestream Launcher"""
 
-def run_torrent_in_vlc(torrent_url):
-    """Start Acestream Launcher"""
+        try:
+            self.play_torrent(torrent_url)
+        except (KeyboardInterrupt, EOFError):
+            print('Acestream Launcher exiting...')
 
-    try:
-        AceStreamEngine(torrent_url)
-    except (KeyboardInterrupt, EOFError):
-        print('Acestream Launcher exiting...')
+            for process in psutil.process_iter():
+                if 'acestreamengine' in process.name():
+                    process.kill()
 
-        for process in psutil.process_iter():
-            if 'acestreamengine' in process.name():
-                process.kill()
+            sys.exit(0)
 
-        sys.exit(0)
-
-
-def start_playback(torrent_url):
-    Thread(
-        target=lambda: run_torrent_in_vlc(torrent_url),
-        name='AceStream Engine and VLC Player'
-    ).start()
+    def start_playback(self, torrent_url):
+        Thread(
+            target=lambda: self._run_playback(torrent_url),
+            name='AceStream Engine and VLC Player'
+        ).start()
 
 
 if __name__ == '__main__':
-    run_torrent_in_vlc('http://localhost:8080/07-28-06_The_Fountain__.torrent')
+    engine = AceStreamEngine(Platform.LINUX_X86, {'vlc_port': 8081})
+    engine.play_torrent('http://127.0.0.1:8080/07-28-06_The_Fountain__.torrent')

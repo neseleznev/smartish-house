@@ -1,10 +1,12 @@
 #!/usr/bin/env python3
 # -*- coding: utf-8 -*-
+import datetime
+import re
 from http.server import HTTPServer as BaseHTTPServer, SimpleHTTPRequestHandler
 import os
 from threading import Thread
 
-TORRENT_SERVER_PORT = 8080
+from core.common import Singleton
 
 
 class HTTPHandler(SimpleHTTPRequestHandler):
@@ -23,23 +25,35 @@ class HTTPServer(BaseHTTPServer):
         BaseHTTPServer.__init__(self, server_address, RequestHandlerClass)
 
 
-def run_torrent_server(directory):
-    httpd = HTTPServer(directory, ("", TORRENT_SERVER_PORT))
-    # httpd.serve_forever()
-    print("serving torrents at port", TORRENT_SERVER_PORT)
-    try:
-        httpd.serve_forever()
-    finally:
-        httpd.server_close()
+class TorrentServer(metaclass=Singleton):
 
+    def __init__(self, directory, port=8080):
+        self.directory = directory
+        self.port = port
+        self.httpd = HTTPServer(directory, ("", port))
+        Thread(
+            target=lambda: self.run_torrent_server(),
+            name='Torrent Server',
+            daemon=True
+        ).start()
 
-def start_torrent_server(directory):
-    Thread(
-        target=lambda: run_torrent_server(directory),
-        name='Torrent Server',
-        daemon=True
-    ).start()
+    def run_torrent_server(self):
+        print("Serving Torrents library on port", self.port)
+        try:
+            self.httpd.serve_forever()
+        finally:
+            self.httpd.server_close()
 
+    @staticmethod
+    def _sanitize_filename(filename):
+        # Rename the file to safe alphanumeric
+        return datetime.datetime.now().strftime('%H-%M-%S') + re.sub(r"[^A-Za-z0-9_\s.]", '', filename)
 
-def get_url_for_file(filename):
-    return 'http://localhost:' + str(TORRENT_SERVER_PORT) + '/' + filename
+    def get_url(self, filename):
+        return 'http://localhost:' + str(self.port) + '/' + TorrentServer._sanitize_filename(filename)
+
+    def add(self, file, filename):
+        safe_name = TorrentServer._sanitize_filename(filename)
+
+        with open(os.path.join(self.directory, safe_name), 'wb') as f:
+            f.write(file)
