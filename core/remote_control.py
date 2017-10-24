@@ -2,9 +2,12 @@ import json
 import urllib.request
 from urllib.error import URLError
 
+import logging
 import telebot
 
 from core.common import Singleton
+
+log = logging.getLogger(__name__)
 
 
 class VLC(metaclass=Singleton):
@@ -40,7 +43,7 @@ class VLC(metaclass=Singleton):
         try:
             self.opener.open(url)
         except URLError as ex:
-            print(ex)
+            log.error(ex)
 
     def fullscreen(self):
         self.open(self.api_command + 'fullscreen')
@@ -123,10 +126,10 @@ class Kodi(metaclass=Singleton):
 
     def open(self, url):
         try:
-            print(url)
+            log.debug('Opening URL %s', url)
             return self.opener.open(url)
         except URLError as ex:
-            print(ex)
+            log.error('%s', ex)
 
     def get_player_id(self):
         json_response = self.open(self.api_method('Player.GetActivePlayers', '{}')).read().decode('utf-8')
@@ -139,14 +142,14 @@ class Kodi(metaclass=Singleton):
     def seek(self, interval: str):
         player_id = self.get_player_id()
         if not player_id:
-            print('Nothing is playing!')
+            log.warning('Nothing is playing!')
             return
         self.open(self.api_method('Player.Seek', '{"playerid":' + player_id + ',"value":"' + interval + '"}'))
 
     def pause(self):
         player_id = self.get_player_id()
         if not player_id:
-            print('Nothing is playing!')
+            log.warning('Nothing is playing!')
             return
         self.open(self.api_method('Player.PlayPause', '{"playerid":' + player_id + '}'))
 
@@ -154,7 +157,7 @@ class Kodi(metaclass=Singleton):
     def next_audio_source(self):
         player_id = self.get_player_id()
         if not player_id:
-            print('Nothing is playing!')
+            log.warning('Nothing is playing!')
             return
         self.open(self.api_method('Player.SetAudioStream', '{"playerid":' + player_id + ',"stream":"next"}'))
 
@@ -162,7 +165,7 @@ class Kodi(metaclass=Singleton):
     def next_subtitle(self):
         player_id = self.get_player_id()
         if not player_id:
-            print('Nothing is playing!')
+            log.warning('Nothing is playing!')
             return
         self.open(self.api_method('Player.SetSubtitle', '{"playerid":' + player_id + ',"subtitle":"next"}'))
 

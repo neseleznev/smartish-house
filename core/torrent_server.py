@@ -6,8 +6,12 @@ from http.server import HTTPServer as BaseHTTPServer, SimpleHTTPRequestHandler
 import os
 from threading import Thread
 
+import logging
+
 from constants import TORRENT_SERVER_PORT
 from core.common import Singleton
+
+log = logging.getLogger(__name__)
 
 
 class HTTPHandler(SimpleHTTPRequestHandler):
@@ -39,7 +43,7 @@ class TorrentServer(metaclass=Singleton):
         ).start()
 
     def run_torrent_server(self):
-        print("Serving Torrents library on port", self.port)
+        log.info('Serving Torrents library on port %d', self.port)
         try:
             self.httpd.serve_forever()
         finally:

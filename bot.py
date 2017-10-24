@@ -1,6 +1,7 @@
 #!/usr/bin/env python3
 # -*- coding: utf-8 -*-
 import datetime
+import logging
 
 import telebot
 from telebot import types
@@ -11,6 +12,11 @@ from core.common import Platform
 from core.remote_control import VLC, Kodi
 from core.torrent_server import TorrentServer
 from config import Config
+from utils import setup_logging
+
+log = logging.getLogger(__name__)
+setup_logging(log_directory='log', file_level=logging.DEBUG, console_level=logging.INFO)
+log.critical('SALAM')
 
 config = Config('config.ini')
 TOKEN = config.get_token()
@@ -33,7 +39,7 @@ bot = telebot.TeleBot(TOKEN)
 
 @bot.message_handler(content_types=["text"], func=lambda x: True)
 def hello_world(message):
-    print(message.text)
+    log.debug('User %s sent a message "%s"', 'username', message.text)
     today = datetime.datetime.now().strftime('%Y%m%d')
 
     bot.send_message(
@@ -47,9 +53,9 @@ def receive_torrent(message):
     filename, file_id = message.document.file_name, message.document.file_id
     file_path = bot.get_file(file_id).file_path
     file = bot.download_file(file_path)
+    log.debug('User %s sent a torrent file "%s"', 'username', filename)
 
     torrents.add(file, filename)
-
     engine.start_playback(torrents.get_url(filename))
 
     reply_markup = types.InlineKeyboardMarkup()
@@ -74,7 +80,7 @@ def rc_callback(query):
 def torrent_callback(query):
     data = query.data
     if data == 'torrent-stop':
-        print('Terminate acestream, clean cache, terminate vlc, hide keyboard')
+        log.warning('Terminate acestream, clean cache, terminate vlc, hide keyboard')
 
 if __name__ == '__main__':
     bot.polling(none_stop=True)

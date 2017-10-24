@@ -18,11 +18,14 @@ from subprocess import PIPE
 from threading import Thread
 from urllib.error import URLError
 
+import logging
 import psutil
 import pexpect
 
 from constants import VLC_PORT, TORRENT_SERVER_PORT, KODI_PORT
 from core.common import Platform
+
+log = logging.getLogger(__name__)
 
 
 class AceStreamEngine(object):
@@ -54,7 +57,7 @@ class AceStreamEngine(object):
             if not AceStreamEngine._is_process_running('kodi', '/usr/bin/'):
                 psutil.Popen('kodi')
             self.kodi_port = str(options.get('kodi_port', KODI_PORT))
-            print('Started Kodi. JSON-RPC API on port', self.kodi_port)
+            log.info('Started Kodi. JSON-RPC API on port %s', self.kodi_port)
         # elif platform == ugly ARM_V7:
         #     self.player_args = ['omxplayer', '-p', '-o', 'local', '--win', "'0 0 1280 800'"]
 
@@ -101,7 +104,10 @@ class AceStreamEngine(object):
             'unavailable': 'Acestream channel unavailable!',
             'kodi': 'Kodi is not responding'
         }
-        print(messages.get(message, message))
+        if message in ['noauth', 'noengine', 'unavailable', 'kodi']:
+            log.error(messages[message])
+        else:
+            log.info(messages.get(message, message))
 
         if self.is_notify_available:
             icon = self.player_args[0]
@@ -138,9 +144,10 @@ class AceStreamEngine(object):
         lines = []
         for line in self.acestream.stdout:
             line = line.decode('utf-8')
+            log.debug(line)
             lines.append(line)
             if 'KILL' in line:
-                self.notify(''.join(lines[-5:]))
+                log.error(''.join(lines[-5:]))
                 self.destroy(1)
             if 'ready to receive remote commands' in line:
                 self.notify('running')
@@ -229,12 +236,12 @@ class AceStreamEngine(object):
             session.timeout = 30
 
             torrent = torrent.replace('localhost', '127.0.0.1', 1)
-            print(torrent)
+            log.debug('Starting locally server torrent file %s', torrent)
             session.sendline('LOADASYNC 467763 TORRENT '+torrent+' 0 0 0')
             session.expect('LOADRESP 467763 {.*}')
             json_response = '{' + session.after.decode('utf-8').split('{')[1]
             response = json.loads(json_response)
-            print(response)
+            log.debug(response)
             infohash = response['infohash']
             checksum = response['checksum']
 
@@ -261,7 +268,7 @@ class AceStreamEngine(object):
 
         lines = []
         for line in self.acestream.stdout:
-            print(line.decode('utf-8'))
+            log.debug(line.decode('utf-8'))
             lines.append(line.decode('utf-8'))
             if 'STOP' in line.decode('utf-8'):
                 self.notify(''.join(lines[-5:]))
@@ -289,11 +296,11 @@ class AceStreamEngine(object):
                                '%22id%22:1,'
                                '%22method%22:%22Player.Open%22,'
                                '%22params%22:{%22item%22:{%22file%22:%22' + url + '%22}}}')
-                print('Sending GET ' + request_url)
+                log.debug('Sending GET ' + request_url)
                 response = opener.open(request_url)
-                print(response.read().decode('utf-8'))
+                log.debug(response.read().decode('utf-8'))
             except URLError as ex:
-                print(ex)
+                log.error(ex)
                 self.notify('kodi')
                 self.kill_running_engine()
 
@@ -304,13 +311,14 @@ class AceStreamEngine(object):
             try:
                 self.player.kill()
             except (AttributeError, psutil.NoSuchProcess):
-                print('Media Player not running...')
+                log.info('Media Player stopped')
 
             try:
                 self.acestream.kill()
             except (AttributeError, psutil.NoSuchProcess):
-                print('Acestream not running...')
-
+                log.info('Acestream stopped')
+        if code != 0:
+            log.critical('Destroying with code %d', code)
         sys.exit(code)
 
     def _run_playback(self, torrent_url):
