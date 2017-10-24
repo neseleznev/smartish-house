@@ -35,7 +35,6 @@ class TorrentServer(metaclass=Singleton):
     def __init__(self, directory, port=TORRENT_SERVER_PORT):
         self.directory = directory
         self.port = port
-        self.httpd = HTTPServer(directory, ("", port))
         Thread(
             target=lambda: self.run_torrent_server(),
             name='Torrent Server',
@@ -43,11 +42,12 @@ class TorrentServer(metaclass=Singleton):
         ).start()
 
     def run_torrent_server(self):
+        httpd = HTTPServer(self.directory, ("", self.port))
         log.info('Serving Torrents library on port %d', self.port)
         try:
-            self.httpd.serve_forever()
+            httpd.serve_forever()
         finally:
-            self.httpd.server_close()
+            httpd.server_close()
 
     @staticmethod
     def _sanitize_filename(filename):

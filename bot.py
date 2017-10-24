@@ -15,7 +15,7 @@ from config import Config
 from utils import setup_logging
 
 log = logging.getLogger(__name__)
-setup_logging(log_directory='log', file_level=logging.DEBUG, console_level=logging.INFO)
+setup_logging(log_directory='log/', file_level=logging.DEBUG, console_level=logging.INFO)
 log.critical('SALAM')
 
 config = Config('config.ini')

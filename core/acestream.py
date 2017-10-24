@@ -40,7 +40,7 @@ class AceStreamEngine(object):
                 os.path.dirname(os.path.realpath(sys.argv[0])),
                 'log',
                 'acestream.log')
-            self.engine_args = ['acestreamengine', '--client-console', '--log-file', self.engine_log]
+            self.engine_args = ['/usr/bin/acestreamengine', '--client-console', '--log-file', self.engine_log]
         elif self.platform == Platform.ARM_V7:
             self.engine_log = '/opt/acestream/acestream.log'
             self.engine_args = ['/opt/acestream/start_acestream.sh']
@@ -102,9 +102,10 @@ class AceStreamEngine(object):
             'noauth': 'Error authenticating to Acestream!',
             'noengine': 'Acstream engine not found in provided path!',
             'unavailable': 'Acestream channel unavailable!',
-            'kodi': 'Kodi is not responding'
+            'kodi': 'Kodi is not responding',
+            'diskspace': 'Not enough free disk space. Trying to clean cache'
         }
-        if message in ['noauth', 'noengine', 'unavailable', 'kodi']:
+        if message in ['noauth', 'noengine', 'unavailable', 'kodi', 'diskspace']:
             log.error(messages[message])
         else:
             log.info(messages.get(message, message))
@@ -137,9 +138,8 @@ class AceStreamEngine(object):
             self.destroy(1)
 
         # Read redirected output
-        self.acestream = psutil.Popen('sudo su -', shell=True, stdin=PIPE, stdout=PIPE, stderr=PIPE)
-        self.acestream.stdin.write(('tail -n 0 -f ' + self.engine_log + '\n').encode('utf-8'))
-        self.acestream.stdin.flush()
+        self.acestream = psutil.Popen('tail -n 0 -f ' + self.engine_log,
+                                      shell=True, stdin=PIPE, stdout=PIPE, stderr=PIPE)
 
         lines = []
         for line in self.acestream.stdout:
@@ -154,7 +154,7 @@ class AceStreamEngine(object):
                 break
 
     @staticmethod
-    def _is_process_running(process_name, process_path='/'):
+    def _is_process_running(process_name, process_path='/usr/bin/'):
         ps = psutil.Popen("ps -eaf | grep " + process_name, shell=True, stdout=PIPE)
         output = ps.stdout.read()
         ps.stdout.close()
@@ -203,7 +203,8 @@ class AceStreamEngine(object):
                 break
 
         url = self._get_playback_url()
-        self._open_stream_url(url)
+        if url:
+            self._open_stream_url(url)
 
     def _start_session(self, torrent):
         """Start acestream telnet session"""
@@ -268,13 +269,20 @@ class AceStreamEngine(object):
 
         lines = []
         for line in self.acestream.stdout:
-            log.debug(line.decode('utf-8'))
-            lines.append(line.decode('utf-8'))
-            if 'STOP' in line.decode('utf-8'):
+            line = line.decode('utf-8')
+            log.debug(line)
+            lines.append(line)
+            if 'not enough free diskspace' in line:
+                self.notify('diskspace')
+                self.kill_running_engine()
+                return
+                # TODO clear cache, send callback message to telegram
+            if 'STOP' in line:
                 self.notify(''.join(lines[-5:]))
                 self.kill_running_engine()
-            if 'START http://127.' in line.decode('utf-8'):
-                return line.decode('utf-8').split('START ')[1].rstrip()
+                return
+            if 'START http://127.' in line:
+                return line.split('START ')[1].rstrip()
 
     def _open_stream_url(self, url):
         if self.platform == Platform.LINUX_X86:
