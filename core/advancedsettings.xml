@@ -1,0 +1,14 @@
+<advancedsettings>
+	<services>
+		<webserver>true</webserver>
+		<webserverport>8080</webserverport>
+		<webserverusername>kodi</webserverusername>
+		<webserverpassword>kodi</webserverpassword>
+		<webskin>webinterface.default</webskin>
+		<zeroconf>true</zeroconf>
+	</services>
+    <jsonrpc>
+        <compactoutput>false</compactoutput>
+        <!--<tcpport>8080</tcpport>-->
+    </jsonrpc>
+</advancedsettings>

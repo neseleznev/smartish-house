@@ -60,5 +60,7 @@ class TorrentServer(metaclass=Singleton):
     def add(self, file, filename):
         safe_name = TorrentServer._sanitize_filename(filename)
 
-        with open(os.path.join(self.directory, safe_name), 'wb') as f:
+        full_name = os.path.join(self.directory, safe_name)
+        os.makedirs(os.path.dirname(full_name), exist_ok=True)
+        with open(full_name, 'wb') as f:
             f.write(file)

@@ -22,7 +22,7 @@ import logging
 import psutil
 import pexpect
 
-from constants import VLC_PORT, TORRENT_SERVER_PORT, KODI_PORT
+from constants import VLC_PORT, TORRENT_SERVER_PORT, KODI_PORT, ACESTREAM_STOP, ACESTREAM_START, ACESTREAM_LOG
 from core.common import Platform
 
 log = logging.getLogger(__name__)
@@ -35,25 +35,26 @@ class AceStreamEngine(object):
         self.platform = platform
 
         """Set up engine params"""
-        if self.platform == Platform.LINUX_X86:
-            self.engine_log = os.path.join(
-                os.path.dirname(os.path.realpath(sys.argv[0])),
-                'log',
-                'acestream.log')
-            self.engine_args = ['/usr/bin/acestreamengine', '--client-console', '--log-file', self.engine_log]
-        elif self.platform == Platform.ARM_V7:
-            self.engine_log = '/opt/acestream/acestream.log'
-            self.engine_args = ['/opt/acestream/start_acestream.sh']
+        # if self.platform == Platform.LINUX_X86:
+        #     self.engine_log = os.path.join(
+        #         os.path.dirname(os.path.realpath(sys.argv[0])),
+        #         'log',
+        #         'acestream.log')
+        #     self.engine_args = ['/usr/bin/acestreamengine', '--client-console', '--log-file', self.engine_log]
+        if self.platform in [Platform.LINUX_X86, Platform.ARM_V7]:
+            self.engine_log = ACESTREAM_LOG
+            self.engine_args = [ACESTREAM_START]
         else:
             raise NotImplementedError(self.platform + ' is not currently supported')
 
         """Set up players"""
-        if platform == Platform.LINUX_X86:  # or platform == Platform.WINDOWS:
-            self.player_args = ['vlc', '--extraintf', 'http',
-                                '--http-host=127.0.0.1',
-                                '--http-port='+str(options.get('vlc_port', VLC_PORT)),
-                                '--http-password=pass']
-        elif platform == Platform.ARM_V7:
+        # if platform == Platform.LINUX_X86:  # or platform == Platform.WINDOWS:
+        #     self.player_args = ['vlc', '--extraintf', 'http',
+        #                         '--http-host=127.0.0.1',
+        #                         '--http-port='+str(options.get('vlc_port', VLC_PORT)),
+        #                         '--http-password=pass']
+        # elif platform == Platform.ARM_V7:
+        if platform in [Platform.LINUX_X86, Platform.ARM_V7]:
             if not AceStreamEngine._is_process_running('kodi', '/usr/bin/'):
                 psutil.Popen('kodi')
             self.kodi_port = str(options.get('kodi_port', KODI_PORT))
@@ -116,15 +117,14 @@ class AceStreamEngine(object):
             self.notifier.show()
 
     def kill_running_engine(self):
-        if self.platform == Platform.LINUX_X86:
+        if self.platform in [Platform.LINUX_X86, Platform.ARM_V7]:
             for process in psutil.process_iter():
                 if 'acestreamengine' in process.name():
                     process.kill()
-        elif self.platform == Platform.ARM_V7:
             try:
-                psutil.Popen('/opt/acestream/stop_acestream.sh', stdout=PIPE)
+                psutil.Popen(ACESTREAM_STOP, stdout=PIPE)
             except FileNotFoundError:
-                pass
+                log.error(ACESTREAM_STOP + " is not found")
         time.sleep(10)
         self.notify('Killed all running AceStream Engine instances (+10 seconds)')
 
@@ -154,7 +154,7 @@ class AceStreamEngine(object):
                 break
 
     @staticmethod
-    def _is_process_running(process_name, process_path='/usr/bin/'):
+    def _is_process_running(process_name, process_path):
         ps = psutil.Popen("ps -eaf | grep " + process_name, shell=True, stdout=PIPE)
         output = ps.stdout.read()
         ps.stdout.close()
@@ -173,10 +173,10 @@ class AceStreamEngine(object):
         def wrapper(*args):
             self = args[0]
 
-            if self.platform == Platform.LINUX_X86:
-                is_running = AceStreamEngine._is_process_running('acestreamengine')
-            elif self.platform == Platform.ARM_V7:
-                is_running = AceStreamEngine._is_process_running('start_acestream.sh', '/opt/acestream/')
+            if self.platform in [Platform.LINUX_X86, Platform.ARM_V7]:
+                parts = ACESTREAM_START.split('/')
+                path, filename = '/'.join(parts[:-1]) + '/', parts[-1]
+                is_running = AceStreamEngine._is_process_running(filename, path)
             else:
                 raise NotImplementedError(self.platform + ' is not currently supported')
 
@@ -197,7 +197,7 @@ class AceStreamEngine(object):
             except ValueError as e:
                 errors.append(e)
                 if len(errors) == 3:
-                    self.notify('Three errors in a row ' + '\n'.join(errors))
+                    self.notify('Three errors in a row ' + '\n'.join(list(map(str, errors))))
                     # self.destroy(1)
             else:
                 break
@@ -285,14 +285,15 @@ class AceStreamEngine(object):
                 return line.split('START ')[1].rstrip()
 
     def _open_stream_url(self, url):
-        if self.platform == Platform.LINUX_X86:
-            self.player_args.append(url)
-            self.player = psutil.Popen(self.player_args)
-            self.player.wait()
-            self.session.sendline('STOP')
-            self.session.sendline('SHUTDOWN')
-
-        elif self.platform == Platform.ARM_V7:
+        # if self.platform == Platform.LINUX_X86:
+        #     self.player_args.append(url)
+        #     self.player = psutil.Popen(self.player_args)
+        #     self.player.wait()
+        #     self.session.sendline('STOP')
+        #     self.session.sendline('SHUTDOWN')
+        #
+        # elif self.platform == Platform.ARM_V7:
+        if self.platform in [Platform.LINUX_X86, Platform.ARM_V7]:
             api_root = 'http://127.0.0.1:' + self.kodi_port + '/jsonrpc'
             password_mgr = urllib.request.HTTPPasswordMgrWithDefaultRealm()
             password_mgr.add_password(None, api_root, 'kodi', 'kodi')
@@ -312,19 +313,10 @@ class AceStreamEngine(object):
                 self.notify('kodi')
                 self.kill_running_engine()
 
-    def destroy(self, code=0):
+    @staticmethod
+    def destroy(code=0):
         """Close acestream and media player"""
 
-        if self.platform == Platform.LINUX_X86:
-            try:
-                self.player.kill()
-            except (AttributeError, psutil.NoSuchProcess):
-                log.info('Media Player stopped')
-
-            try:
-                self.acestream.kill()
-            except (AttributeError, psutil.NoSuchProcess):
-                log.info('Acestream stopped')
         if code != 0:
             log.critical('Destroying with code %d', code)
         sys.exit(code)

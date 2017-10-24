@@ -23,10 +23,11 @@ TOKEN = config.get_token()
 TORRENT_DIR = config.get_torrent_directory()
 PLATFORM = config.get_platform()
 
-if PLATFORM == Platform.LINUX_X86:
-    options = {'vlc_port': VLC_PORT}
-    remote = VLC(VLC_PORT)
-elif PLATFORM == Platform.ARM_V7:
+# if PLATFORM == Platform.LINUX_X86:
+#     options = {'vlc_port': VLC_PORT}
+#     remote = VLC(VLC_PORT)
+# elif PLATFORM == Platform.ARM_V7:
+if PLATFORM in [Platform.LINUX_X86, Platform.ARM_V7]:
     options = {'kodi_port': KODI_PORT}
     remote = Kodi(KODI_PORT)
 else:
