@@ -11,3 +11,6 @@ ACESTREAM_DIR = os.path.join(
 ACESTREAM_START = os.path.join(ACESTREAM_DIR, 'start_acestream.sh')
 ACESTREAM_STOP = os.path.join(ACESTREAM_DIR, 'stop_acestream.sh')
 ACESTREAM_LOG = os.path.join(ACESTREAM_DIR, 'acestream.log')
+ACESTREAM_CACHE = os.path.join(
+    ACESTREAM_DIR, 'androidfs', 'data', 'data',
+    'org.acestream.media', 'files', '.ACEStream', '.acestream_cache')

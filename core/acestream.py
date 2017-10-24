@@ -22,7 +22,8 @@ import logging
 import psutil
 import pexpect
 
-from constants import VLC_PORT, TORRENT_SERVER_PORT, KODI_PORT, ACESTREAM_STOP, ACESTREAM_START, ACESTREAM_LOG
+from constants import VLC_PORT, TORRENT_SERVER_PORT, KODI_PORT, ACESTREAM_STOP, ACESTREAM_START, ACESTREAM_LOG, \
+    ACESTREAM_CACHE
 from core.common import Platform
 
 log = logging.getLogger(__name__)
@@ -275,6 +276,7 @@ class AceStreamEngine(object):
             if 'not enough free diskspace' in line:
                 self.notify('diskspace')
                 self.kill_running_engine()
+                self._clear_cache()
                 return
                 # TODO clear cache, send callback message to telegram
             if 'STOP' in line:
@@ -283,6 +285,16 @@ class AceStreamEngine(object):
                 return
             if 'START http://127.' in line:
                 return line.split('START ')[1].rstrip()
+
+    def _clear_cache(self):
+        try:
+            for root, dirs, files in os.walk(ACESTREAM_CACHE):
+                for file in files:
+                    if file == '.lock':
+                        continue
+                    os.remove(os.path.join(root, file))
+        except (PermissionError, FileNotFoundError):
+            log.warning('Got an exception while clearing cache')
 
     def _open_stream_url(self, url):
         # if self.platform == Platform.LINUX_X86:
