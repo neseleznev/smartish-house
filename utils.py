@@ -4,7 +4,8 @@ import os
 
 
 def setup_logging(log_directory, file_level, console_level):
-    filename = datetime.datetime.now().strftime('%Y-%m-%d %H:%M.log')
+    # filename = datetime.datetime.now().strftime('%Y-%m-%d %H:%M.log')
+    filename = '1.log'
     os.makedirs(os.path.dirname('./' + log_directory), exist_ok=True)
 
     # set up logging to file

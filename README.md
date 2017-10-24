@@ -51,6 +51,23 @@ platform: ARM_V7
 ' > config.ini
 ```
 
+## (Optional) Set Webhook
+If you have public IP, you may want to enable Telegram Webhook
+in order to avoid network errors
+```
+echo '
+[TELEGRAM]
+host: 11.22.33.44 # or domain.com
+key: ./webhook_pkey.key
+cert: ./webhook_cert.pem
+' >> config.ini
+
+openssl genrsa -out webhook_pkey.key 2048
+# When asked for "Common Name (e.g. server FQDN or YOUR name)"
+# you should reply with host
+openssl req -new -x509 -days 3650 -key webhook_pkey.pem -out webhook_cert.pem
+```
+
 ## Run
 Start the bot (Sorry, currently with sudo)
 ```
