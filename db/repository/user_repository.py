@@ -1,6 +1,6 @@
-from core.common import Singleton
 from db.database import Database
 from db.model.user import User
+from torrent.core import Singleton
 
 INIT_SCRIPT = [
     'DROP TABLE users',

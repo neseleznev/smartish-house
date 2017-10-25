@@ -1,11 +1,13 @@
+#!/usr/bin/env python3
+# -*- coding: utf-8 -*-
 import json
+import logging
 import urllib.request
 from urllib.error import URLError
 
-import logging
 import telebot
 
-from core.common import Singleton
+from torrent.core import Singleton
 
 log = logging.getLogger(__name__)
 

@@ -8,13 +8,10 @@ from http.server import HTTPServer
 import telebot
 from telebot import types
 
-from constants import VLC_PORT, KODI_PORT, TORRENT_SERVER_PORT
-from core.acestream import AceStreamEngine
-from core.common import Platform
-from core.remote_control import VLC, Kodi
-from core.torrent_server import TorrentServer
 from config import Config
-from core.webhook_server import WebhookHandler
+from server.webhook_server import WebhookHandler
+from torrent.constants import KODI_PORT, TORRENT_SERVER_PORT
+from torrent.core import AceStreamEngine, Kodi, Platform, TorrentServer
 from utils import setup_logging
 
 log = logging.getLogger(__name__)

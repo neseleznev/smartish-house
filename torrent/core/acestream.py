@@ -7,24 +7,24 @@ http://wiki.acestream.org/wiki/index.php/Engine_API
 Inspired by https://github.com/jonian/acestream-launcher/blob/master/acestream_launcher.py
 """
 
+import hashlib
 import json
+import logging
 import os
 import re
 import sys
 import time
-import hashlib
 import urllib.request
 from subprocess import PIPE
 from threading import Thread
 from urllib.error import URLError
 
-import logging
-import psutil
 import pexpect
+import psutil
 
-from constants import VLC_PORT, TORRENT_SERVER_PORT, KODI_PORT, ACESTREAM_STOP, ACESTREAM_START, ACESTREAM_LOG, \
+from torrent.constants import VLC_PORT, TORRENT_SERVER_PORT, KODI_PORT, ACESTREAM_STOP, ACESTREAM_START, ACESTREAM_LOG, \
     ACESTREAM_CACHE
-from core.common import Platform
+from torrent.core import Platform
 
 log = logging.getLogger(__name__)
 
@@ -102,7 +102,7 @@ class AceStreamEngine(object):
             'waiting': 'Waiting for channel response...',
             'started': 'Streaming started. Launching player.',
             'noauth': 'Error authenticating to Acestream!',
-            'noengine': 'Acstream engine not found in provided path!',
+            'noengine': 'AceStream Engine not found in provided path!',
             'unavailable': 'Acestream channel unavailable!',
             'kodi': 'Kodi is not responding',
             'diskspace': 'Not enough free disk space. Trying to clean cache'

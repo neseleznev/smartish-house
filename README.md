@@ -23,10 +23,10 @@ If you have public IP, you may want to enable Telegram Webhook
 in order to avoid network errors. Open `config.ini` and check <b>[TELEGRAM]</b> section.
 You will have to generate https certificate, the easiest way is:
 ```
-openssl genrsa -out webhook_pkey.key 2048
+openssl genrsa -out server/webhook_pkey.key 2048
 # When asked for "Common Name (e.g. server FQDN or YOUR name)"
 # you should reply with host ip or domain name
-openssl req -new -x509 -days 3650 -key webhook_pkey.key -out webhook_cert.pem
+openssl req -new -x509 -days 3650 -key server/webhook_pkey.key -out server/webhook_cert.pem
 ```
 
 ## Run

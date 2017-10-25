@@ -2,7 +2,7 @@
 # -*- coding: utf-8 -*-
 import sqlite3
 
-from core.common import Singleton
+from torrent.core import Singleton
 
 
 class Database(metaclass=Singleton):

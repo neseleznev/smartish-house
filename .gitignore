@@ -1,4 +1,9 @@
 config.ini
-db/sqlite.db
 log/
-acestream/
+
+db/sqlite.db
+
+server/webhook_cert.pem
+server/webhook_pkey.key
+
+torrent/acestream/

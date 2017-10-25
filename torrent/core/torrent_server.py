@@ -1,15 +1,14 @@
 #!/usr/bin/env python3
 # -*- coding: utf-8 -*-
 import datetime
+import logging
+import os
 import re
 from http.server import HTTPServer as BaseHTTPServer, SimpleHTTPRequestHandler
-import os
 from threading import Thread
 
-import logging
-
-from constants import TORRENT_SERVER_PORT
-from core.common import Singleton
+from torrent.constants import TORRENT_SERVER_PORT
+from torrent.core import Singleton
 
 log = logging.getLogger(__name__)
 

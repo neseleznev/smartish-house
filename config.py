@@ -4,22 +4,25 @@ import configparser
 import logging
 import sys
 
-from core.common import Platform
+from torrent.core import Platform
 
 log = logging.getLogger(__name__)
 
 DEFAULT_SECTION_ERROR = """Please, provide %s file with the following content:
     [DEFAULT]
     token: xxxxxxx:12345678901234567890
-    torrent_dir: /path/to/dir
+"""
+TORRENT_SECTION_ERROR = """Please, provide %s file with the following content:
+    [TORRENT]
+    dir: /path/to/dir
     platform: ARM_V7 or LINUX_X86
 """
-TELEGRAM_SECTION_ERROR = """Please, make sure your TELEGRAM section contains
+SERVER_SECTION_ERROR = """Please, make sure your SERVER section contains
 following or remove it at all to use long-polling:
-    [TELEGRAM]
+    [SERVER]
     host: 12.34.56.78 or domain.com
-    key: ./webhook_pkey.key
-    cert: ./webhook_cert.pem
+    key: server/webhook_pkey.key
+    cert: server/webhook_cert.pem
 """
 
 
@@ -33,10 +36,10 @@ class Config:
         return self._get_property('DEFAULT', 'token')
 
     def get_torrent_directory(self):
-        return self._get_property('DEFAULT', 'torrent_dir')
+        return self._get_property('TORRENT', 'dir')
 
     def get_platform(self):
-        platform = self._get_property('DEFAULT', 'platform')
+        platform = self._get_property('TORRENT', 'platform')
         if platform == 'ARM_V7':
             return Platform.ARM_V7
         elif platform == 'LINUX_X86':
@@ -44,7 +47,7 @@ class Config:
 
     def get_webhook_settings(self):
         try:
-            telegram = self.config['TELEGRAM']
+            telegram = self.config['SERVER']
             assert 'host' in telegram
             assert 'key' in telegram
             assert 'cert' in telegram
@@ -52,12 +55,15 @@ class Config:
         except KeyError:
             return None
         except AssertionError:
-            log.error(TELEGRAM_SECTION_ERROR)
+            log.error(SERVER_SECTION_ERROR)
             sys.exit(1)
 
     def _get_property(self, section, property_name):
         try:
             return self.config[section][property_name]
         except KeyError:
-            log.error(DEFAULT_SECTION_ERROR.format(self.config_filename))
+            if section == 'DEFAULT':
+                log.error(DEFAULT_SECTION_ERROR.format(self.config_filename))
+            elif section == 'TORRENT':
+                log.error(TORRENT_SECTION_ERROR.format(self.config_filename))
             sys.exit(1)

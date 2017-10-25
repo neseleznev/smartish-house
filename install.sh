@@ -76,7 +76,9 @@ cp core/advancedsettings.xml ~/.kodi/userdata
 echo -e "${WHITE}V. Creating config${NC}"
 echo "[DEFAULT]
 token: xxxxxxxxx:yyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyy
-torrent_dir: ~/Torrents" > config.ini
+
+[TORRENT]
+dir: ~/Torrents" > config.ini
 
 if [ "$1" == "arm" ]; then
     echo "platform: ARM_V7" >> config.ini
@@ -86,7 +88,7 @@ fi
 
 echo "
 # Uncomment following lines to enable Telegram Webhooks
-# [TELEGRAM]
+# [SERVER]
 # host: 11.22.33.44 # or domain.com
 # key: ./webhook_pkey.key
 # cert: ./webhook_cert.pem" >> config.ini

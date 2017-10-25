@@ -1,10 +1,14 @@
-# Quick'n'dirty SSL certificate generation:
-#
-# openssl genrsa -out webhook_pkey.key 2048
-# openssl req -new -x509 -days 3650 -key webhook_pkey.pem -out webhook_cert.pem
-#
-# When asked for "Common Name (e.g. server FQDN or YOUR name)" you should reply
-# with the same value in you put in WEBHOOK_HOST
+#!/usr/bin/env python3
+# -*- coding: utf-8 -*-
+
+""" Quick'n'dirty SSL certificate generation:
+
+> openssl genrsa -out server/webhook_pkey.key 2048
+> openssl req -new -x509 -days 3650 -key server/webhook_pkey.key -out server/webhook_cert.pem
+
+When asked for "Common Name (e.g. server FQDN or YOUR name)" you should reply
+with the same value in you put in WEBHOOK_HOST
+"""
 from http.server import BaseHTTPRequestHandler
 
 import telebot
