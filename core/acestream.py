@@ -113,7 +113,8 @@ class AceStreamEngine(object):
             log.info(messages.get(message, message))
 
         if self.is_notify_available:
-            icon = self.player_args[0]
+            # icon = self.player_args[0]
+            icon = 'kodi'  # TODO change when add VLC support
             self.notifier.update(self.app_name, messages.get(message, message), icon)
             self.notifier.show()
 

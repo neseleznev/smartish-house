@@ -12,12 +12,12 @@ DEFAULT_SECTION_ERROR = """Please, provide %s file with the following content:
     [DEFAULT]
     token: xxxxxxx:12345678901234567890
     torrent_dir: /path/to/dir
-    platform: ARM_V7 # or LINUX_X86
+    platform: ARM_V7 or LINUX_X86
 """
 TELEGRAM_SECTION_ERROR = """Please, make sure your TELEGRAM section contains
 following or remove it at all to use long-polling:
     [TELEGRAM]
-    host: 12.34.56.78 # or domain.com
+    host: 12.34.56.78 or domain.com
     key: ./webhook_pkey.key
     cert: ./webhook_cert.pem
 """
