@@ -39,11 +39,13 @@ fi
 
 # III. Acestream build and elevate
 echo -e "${WHITE}III. Installing AceStream Engine${NC}"
+cd torrent
 rm -rf cheamstream
 git clone https://github.com/miltador/cheapstream
+cd cheapstream
 
 if [ "$1" == "arm" ] || [ "$1" == "x86" ]; then
-    cheamstream/build.sh $1
+    ./build.sh $1
 else
     echo -e "${RED}Error!${NC}"
     echo -e "Usage: ./install.sh ${YELLOW}platform${NC}
@@ -51,6 +53,8 @@ else
     exit
 fi
 
+cd  ..
+rm -rf acestream
 mv cheapstream/dist/ acestream
 rm -rf cheapstream
 
@@ -58,6 +62,7 @@ ${PERMISSION} chown root:root acestream/start_acestream.sh
 ${PERMISSION} chown root:root acestream/stop_acestream.sh
 ${PERMISSION} chmod 4775 acestream/start_acestream.sh
 ${PERMISSION} chmod 4775 acestream/stop_acestream.sh
+cd ..
 
 
 # IV. Player
@@ -69,7 +74,7 @@ if [ -z "$KODI" ]; then
 fi
 
 mkdir -p ~/.kodi/userdata  # TODO know how it works under root
-cp core/advancedsettings.xml ~/.kodi/userdata
+cp torrent/resources/advancedsettings.xml ~/.kodi/userdata
 
 
 # V. Create config
@@ -90,8 +95,8 @@ echo "
 # Uncomment following lines to enable Telegram Webhooks
 # [SERVER]
 # host: 11.22.33.44 # or domain.com
-# key: ./webhook_pkey.key
-# cert: ./webhook_cert.pem" >> config.ini
+# key: server/webhook_pkey.key
+# cert: server/webhook_cert.pem" >> config.ini
 
 echo -e "Open ${BLUE}./config.ini${NC} and fill it with your parameters"
 echo -e "Ciao!"
