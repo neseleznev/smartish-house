@@ -22,9 +22,9 @@ from urllib.error import URLError
 import pexpect
 import psutil
 
-from torrent.constants import VLC_PORT, TORRENT_SERVER_PORT, KODI_PORT, ACESTREAM_STOP, ACESTREAM_START, ACESTREAM_LOG, \
+from ..constants import VLC_PORT, TORRENT_SERVER_PORT, KODI_PORT, ACESTREAM_STOP, ACESTREAM_START, ACESTREAM_LOG, \
     ACESTREAM_CACHE
-from torrent.core import Platform
+from .common import Platform
 
 log = logging.getLogger(__name__)
 

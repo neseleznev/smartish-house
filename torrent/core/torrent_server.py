@@ -7,8 +7,8 @@ import re
 from http.server import HTTPServer as BaseHTTPServer, SimpleHTTPRequestHandler
 from threading import Thread
 
-from torrent.constants import TORRENT_SERVER_PORT
-from torrent.core import Singleton
+from ..constants import TORRENT_SERVER_PORT
+from .common import Singleton
 
 log = logging.getLogger(__name__)
 
@@ -41,6 +41,7 @@ class TorrentServer(metaclass=Singleton):
         ).start()
 
     def run_torrent_server(self):
+        os.makedirs(os.path.dirname(self.directory), exist_ok=True)
         httpd = HTTPServer(self.directory, ("", self.port))
         log.info('Serving Torrents library on port %d', self.port)
         try:

@@ -77,6 +77,7 @@ def rc_callback(query):
     action = query.data.split('remote-')[1]
     bot.send_chat_action(query.message.chat.id, 'typing')
     remote.control(action)
+    # FIXME remote does not work with Webhook
 
 
 @bot.callback_query_handler(func=lambda q: q.data.startswith('torrent-'))

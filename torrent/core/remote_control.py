@@ -7,7 +7,7 @@ from urllib.error import URLError
 
 import telebot
 
-from torrent.core import Singleton
+from .common import Singleton
 
 log = logging.getLogger(__name__)
 
